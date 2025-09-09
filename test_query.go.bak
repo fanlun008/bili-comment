@@ -1,0 +1,42 @@
+package main
+
+import (
+	"database/sql"
+	"fmt"
+
+	_ "github.com/mattn/go-sqlite3"
+)
+
+func main() {
+	db, err := sql.Open("sqlite3", "./data/crawler.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT * FROM bilibili_comments ORDER BY 序号 ASC LIMIT 5")
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	cols, err := rows.Columns()
+	if err != nil {
+		panic(err)
+	}
+
+	for rows.Next() {
+		values := make([]interface{}, len(cols))
+		valuePtrs := make([]interface{}, len(cols))
+		for i := range values {
+			valuePtrs[i] = &values[i]
+		}
+		if err := rows.Scan(valuePtrs...); err != nil {
+			panic(err)
+		}
+		for i, col := range cols {
+			fmt.Printf("%s: %v\t", col, values[i])
+		}
+		fmt.Println()
+	}
+}

@@ -1,0 +1,109 @@
+{
+    "title": "CommentInfoArray",
+    "type": "object",
+    "properties": {
+        "items": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "serial_number": {
+                        "type": "integer",
+                        "description": "序号"
+                    },
+                    "parent_id": {
+                        "type": "integer",
+                        "description": "上级评论ID"
+                    },
+                    "comment_id": {
+                        "type": "integer",
+                        "description": "评论ID"
+                    },
+                    "user_id": {
+                        "type": "integer",
+                        "description": "用户ID"
+                    },
+                    "username": {
+                        "type": "string",
+                        "description": "用户名"
+                    },
+                    "user_level": {
+                        "type": "integer",
+                        "description": "用户等级"
+                    },
+                    "gender": {
+                        "type": "string",
+                        "description": "性别",
+                        "enum": [
+                            "男",
+                            "女",
+                            "保密"
+                        ]
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "评论内容"
+                    },
+                    "comment_time": {
+                        "type": "string",
+                        "description": "评论时间"
+                    },
+                    "reply_count": {
+                        "type": "integer",
+                        "description": "回复数"
+                    },
+                    "like_count": {
+                        "type": "integer",
+                        "description": "点赞数"
+                    },
+                    "signature": {
+                        "type": "string",
+                        "description": "个性签名"
+                    },
+                    "ip_location": {
+                        "type": "string",
+                        "description": "IP属地"
+                    },
+                    "is_vip": {
+                        "type": "string",
+                        "description": "是否是大会员"
+                    },
+                    "avatar": {
+                        "type": "string",
+                        "description": "头像"
+                    },
+                    "bv": {
+                        "type": "string",
+                        "description": "视频BV号"
+                    },
+                    "video_title": {
+                        "type": "string",
+                        "description": "视频标题"
+                    }
+                },
+                "required": [
+                    "serial_number",
+                    "parent_id",
+                    "comment_id",
+                    "user_id",
+                    "username",
+                    "user_level",
+                    "gender",
+                    "content",
+                    "comment_time",
+                    "reply_count",
+                    "like_count",
+                    "signature",
+                    "ip_location",
+                    "is_vip",
+                    "avatar",
+                    "bv",
+                    "video_title"
+                ]
+            }
+        }
+    },
+    "required": [
+        "items"
+    ]
+}
