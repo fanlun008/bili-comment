@@ -1,0 +1,102 @@
+# 添加 新的 命令行工具, 参考 crawl.go
+## 根据 这个keyword 查询视频的api
+GET - https://api.bilibili.com/x/web-interface/wbi/search/all/v2?__refresh__=true&_extra=&context=&page=2&page_size=42&pubtime_begin_s=0&pubtime_end_s=0&platform=pc&highlight=1&single_column=0&keyword=极氪001&qv_id=QPNzrthu4rt5nnuNsTpiYb7Kg0IP3iJd&ad_resource=5646&source_tag=3&web_roll_page=1&web_location=1430654&w_rid=9e30eb38663702cd7160797b668dad34&wts=1757433003
+
+cookie 可以参考原来或者复用原来的获取方式
+
+
+
+api 数据结构如下
+
+{
+    "code": 0,
+    "message": "0",
+    "ttl": 1,
+    "data": {
+        "seid": "1187108476076039631",
+        "page": 2,
+        "pagesize": 20,
+        "next": 3,
+        "numResults": 1000,
+        "numPages": 50,
+        "suggest_keyword": "",
+        "rqt_type": "search",
+        ...
+        "result": [
+            ...
+            {
+                "result_type": "star",
+                "data": []
+            },
+            {
+                "result_type": "video",
+                "data": [
+                    {
+                        "type": "video",
+                        "id": 115139349192199,
+                        "author": "是书辞_",
+                        "mid": 478063478,
+                        "typeid": "21",
+                        "typename": "日常",
+                        "arcurl": "http://www.bilibili.com/video/av115139349192199",
+                        "aid": 115139349192199,
+                        "bvid": "BV1W7agzeEd1",
+                        "title": "本来还挺喜欢<em class=\"keyword\">极氪</em>的",
+                        "description": "-",
+                        "pic": "//i0.hdslb.com/bfs/archive/d01009d9145f3a6c5edcdb6c4a136962d6d18ca8.jpg",
+                        "play": 51758,
+                        "video_review": 49,
+                        "favorites": 74,
+                        "tag": "篮球,美女,汽车,比亚迪,小米,鸿蒙,吉利,蔡徐坤,极氪,会玩的B友早出发",
+                        "review": 59,
+                        "pubdate": 1756887131,
+                        "senddate": 1756887132,
+                        "duration": "1:30",
+                        "badgepay": false,
+                        "hit_columns": [],
+                        "view_type": "",
+                        "is_pay": 0,
+                        "is_union_video": 0,
+                        "rec_tags": null,
+                        "new_rec_tags": [],
+                        "like": 980,
+                        "upic": "https://i2.hdslb.com/bfs/face/2f8b82fca758474770fa8e7b05eca9c7782dcf25.jpg",
+                        "corner": "",
+                        "cover": "",
+                        "desc": "",
+                        "url": "",
+                        "rec_reason": "",
+                        "danmaku": 49,
+                        "biz_data": null,
+                        "is_charge_video": 0,
+                        "vt": 0,
+                        "enable_vt": 0,
+                        "vt_display": "",
+                        "subtitle": "",
+                        "episode_count_text": "",
+                        "release_status": 0,
+                        "is_intervene": 0,
+                        "area": 0,
+                        "style": 0,
+                        "cate_name": "",
+                        "is_live_room_inline": 0,
+                        "live_status": 0,
+                        "live_time": "",
+                        "online": 0,
+                        "rank_index": 43,
+                        "rank_offset": 43,
+                        "roomid": 0,
+                        "short_id": 0,
+                        "spread_id": 0,
+                        "tags": "",
+                        "uface": "",
+                        "uid": 0,
+                        "uname": "",
+                        "user_cover": "",
+                        "parent_area_id": 0,
+                        "parent_area_name": "",
+                        "watched_show": null
+                    },
+
+# 用另外一张表存储获取的结果，重点是 result：result_type video 里面的 data 数组
+# 主要存储内容是 keyword(查询时候的keyword), bvid，title, author, play, video_review, favorites, pubdate, duration, like, danmaku

@@ -1,15 +1,17 @@
-# B站评论爬虫命令行工具
+# B站评论爬虫和视频搜索命令行工具
 
-一个基于 Cobra 的命令行工具，用于爬取B站视频评论数据。
+一个基于 Cobra 的命令行工具，用于爬取B站视频评论数据和搜索B站视频。
 
 ## 功能特性
 
 - 支持爬取一级和二级评论
+- 支持根据关键词搜索B站视频
 - 可配置爬取模式（最新/热门评论）
 - 支持自定义输出路径
 - 可配置请求间隔避免反爬
 - 支持二级评论页数限制
 - 数据存储到 SQLite 数据库
+- 支持查询已保存的视频和评论数据
 
 ## 安装
 
@@ -54,6 +56,59 @@ make build-darwin   # macOS
 ```
 
 ## 使用方法
+
+### 搜索视频
+
+#### 基本用法
+
+```bash
+# 搜索关键词相关的视频
+./bili-comment search 极氪001
+
+# 搜索指定页数的结果
+./bili-comment search 极氪001 --page=2
+
+# 设置每页结果数量
+./bili-comment search 极氪001 --page-size=10
+```
+
+#### 高级用法
+
+```bash
+# 设置请求延迟
+./bili-comment search 极氪001 --delay=1s
+
+# 指定输出数据库路径
+./bili-comment search 极氪001 --output=/tmp/videos.db
+
+# 指定Cookie文件路径
+./bili-comment search 极氪001 --cookie=./my_cookie.txt
+```
+
+### 查询视频
+
+#### 基本查询
+
+```bash
+# 查询所有视频记录（默认显示前20条）
+./bili-comment query-videos
+
+# 显示前10条视频记录
+./bili-comment query-videos --list=10
+
+# 查询特定关键词的视频
+./bili-comment query-videos --keyword=极氪001
+```
+
+#### 条件查询
+
+```bash
+# 查询特定关键词的前5条视频
+./bili-comment query-videos --keyword=特斯拉 --list=5
+
+# 指定数据库路径查询
+./bili-comment query-videos --output=/path/to/videos.db
+```
 
 ### 爬取评论
 
@@ -159,7 +214,32 @@ SESSDATA=xxx; buvid3=xxx; DedeUserID=xxx; ...
 
 ## 数据库结构
 
-数据存储在SQLite数据库中，表结构如下：
+数据存储在SQLite数据库中，包含两个主要表：
+
+### 视频搜索结果表 (bilibili_videos)
+
+```sql
+CREATE TABLE bilibili_videos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    keyword TEXT NOT NULL,           -- 搜索关键词
+    bvid TEXT NOT NULL,             -- 视频BV号
+    title TEXT,                     -- 视频标题
+    author TEXT,                    -- 作者
+    play INTEGER,                   -- 播放量
+    video_review INTEGER,           -- 评论数
+    favorites INTEGER,              -- 收藏数
+    pubdate INTEGER,                -- 发布时间戳
+    duration TEXT,                  -- 视频时长
+    like_count INTEGER,             -- 点赞数
+    danmaku INTEGER,                -- 弹幕数
+    description TEXT,               -- 视频描述
+    pic TEXT,                       -- 视频封面
+    create_time TEXT,               -- 记录创建时间
+    UNIQUE(keyword, bvid)           -- 防重复索引
+);
+```
+
+### 评论表 (bilibili_comments)
 
 ```sql
 CREATE TABLE bilibili_comments (
@@ -189,11 +269,33 @@ CREATE TABLE bilibili_comments (
 # 查看主命令帮助
 ./bili-comment --help
 
+# 查看搜索命令帮助
+./bili-comment search --help
+
+# 查看视频查询命令帮助
+./bili-comment query-videos --help
+
 # 查看爬取命令帮助
 ./bili-comment crawl --help
 
-# 查看查询命令帮助
+# 查看评论查询命令帮助
 ./bili-comment query --help
+```
+
+## 完整工作流程示例
+
+```bash
+# 1. 搜索相关视频
+./bili-comment search 极氪001 --page-size=5
+
+# 2. 查看搜索结果
+./bili-comment query-videos --keyword=极氪001
+
+# 3. 选择感兴趣的视频，爬取评论（使用查询结果中的BVID）
+./bili-comment crawl BV1QhWJeoEww
+
+# 4. 查看爬取的评论
+./bili-comment query --list=10 --bv=BV1QhWJeoEww
 ```
 
 ## 开发工具
@@ -219,8 +321,11 @@ make vet
 # 更新依赖
 make deps
 
-# 运行示例
-make example
+# 运行搜索示例
+make search-example
+
+# 运行查询示例
+make query-example
 ```
 
 ## 注意事项
@@ -237,9 +342,12 @@ bili-comment/
 ├── main.go           # 程序入口
 ├── cmd/              # Cobra命令定义
 │   ├── root.go       # 根命令
-│   └── crawl.go      # 爬取命令
+│   ├── crawl.go      # 爬取命令
+│   ├── search.go     # 搜索命令
+│   ├── query.go      # 评论查询命令
+│   └── query_videos.go # 视频查询命令
 ├── crawler/          # 爬虫核心逻辑
-│   └── crawler.go    # 爬虫实现
+│   └── crawler.go    # 爬虫和搜索实现
 ├── data/             # 数据存储目录
 │   └── crawler.db    # SQLite数据库
 ├── py-crawler/       # Python版本参考

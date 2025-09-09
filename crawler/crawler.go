@@ -40,12 +40,37 @@ type CommentInfo struct {
 	VideoTitle   string `json:"video_title"`   // 视频标题
 }
 
+// VideoInfo 视频信息结构体
+type VideoInfo struct {
+	Keyword     string `json:"keyword"`      // 搜索关键词
+	BVID        string `json:"bvid"`         // 视频BV号
+	Title       string `json:"title"`        // 视频标题
+	Author      string `json:"author"`       // 作者
+	Play        int64  `json:"play"`         // 播放量
+	VideoReview int    `json:"video_review"` // 评论数
+	Favorites   int    `json:"favorites"`    // 收藏数
+	PubDate     int64  `json:"pubdate"`      // 发布时间戳
+	Duration    string `json:"duration"`     // 视频时长
+	Like        int    `json:"like"`         // 点赞数
+	Danmaku     int    `json:"danmaku"`      // 弹幕数
+	Description string `json:"description"`  // 视频描述
+	Pic         string `json:"pic"`          // 视频封面
+	CreateTime  string `json:"create_time"`  // 记录创建时间
+}
+
 // BilibiliCommentCrawler B站评论爬虫结构体
 type BilibiliCommentCrawler struct {
 	db       *sql.DB
 	cookie   string
 	comments []CommentInfo
 	config   *Config
+}
+
+// BilibiliVideoSearcher B站视频搜索结构体
+type BilibiliVideoSearcher struct {
+	db     *sql.DB
+	cookie string
+	config *Config
 }
 
 // Config 爬虫配置
@@ -132,6 +157,41 @@ type SecondCommentResponse struct {
 	} `json:"data"`
 }
 
+// SearchResponse 搜索API响应结构体
+type SearchResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    struct {
+		Result []struct {
+			ResultType string `json:"result_type"`
+			Data       []struct {
+				Type        string `json:"type"`
+				ID          int64  `json:"id"`
+				Author      string `json:"author"`
+				MID         int64  `json:"mid"`
+				TypeID      string `json:"typeid"`
+				TypeName    string `json:"typename"`
+				ArcURL      string `json:"arcurl"`
+				AID         int64  `json:"aid"`
+				BVID        string `json:"bvid"`
+				Title       string `json:"title"`
+				Description string `json:"description"`
+				Pic         string `json:"pic"`
+				Play        int64  `json:"play"`
+				VideoReview int    `json:"video_review"`
+				Favorites   int    `json:"favorites"`
+				Tag         string `json:"tag"`
+				Review      int    `json:"review"`
+				PubDate     int64  `json:"pubdate"`
+				SendDate    int64  `json:"senddate"`
+				Duration    string `json:"duration"`
+				Like        int    `json:"like"`
+				Danmaku     int    `json:"danmaku"`
+			} `json:"data"`
+		} `json:"result"`
+	} `json:"data"`
+}
+
 // NewBilibiliCommentCrawler 创建新的B站评论爬虫实例
 func NewBilibiliCommentCrawler(config *Config) (*BilibiliCommentCrawler, error) {
 	// 初始化数据库
@@ -172,8 +232,8 @@ func getDBConnection(dbPath string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	// 创建表
-	createTableSQL := `
+	// 创建评论表
+	createCommentTableSQL := `
 	CREATE TABLE IF NOT EXISTS bilibili_comments (
 		序号 INTEGER,
 		上级评论ID INTEGER,
@@ -194,7 +254,33 @@ func getDBConnection(dbPath string) (*sql.DB, error) {
 		视频标题 TEXT
 	)`
 
-	_, err = db.Exec(createTableSQL)
+	_, err = db.Exec(createCommentTableSQL)
+	if err != nil {
+		return nil, err
+	}
+
+	// 创建视频搜索结果表
+	createVideoTableSQL := `
+	CREATE TABLE IF NOT EXISTS bilibili_videos (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		keyword TEXT NOT NULL,
+		bvid TEXT NOT NULL,
+		title TEXT,
+		author TEXT,
+		play INTEGER,
+		video_review INTEGER,
+		favorites INTEGER,
+		pubdate INTEGER,
+		duration TEXT,
+		like_count INTEGER,
+		danmaku INTEGER,
+		description TEXT,
+		pic TEXT,
+		create_time TEXT,
+		UNIQUE(keyword, bvid)
+	)`
+
+	_, err = db.Exec(createVideoTableSQL)
 	if err != nil {
 		return nil, err
 	}
@@ -298,6 +384,14 @@ func (bcc *BilibiliCommentCrawler) GetVideoInfo(bv string) (string, string, erro
 func md5Hash(text string) string {
 	hash := md5.Sum([]byte(text))
 	return hex.EncodeToString(hash[:])
+}
+
+// cleanHTMLTags 清理HTML标签
+func cleanHTMLTags(text string) string {
+	// 移除HTML标签
+	re := regexp.MustCompile(`<[^>]*>`)
+	cleaned := re.ReplaceAllString(text, "")
+	return cleaned
 }
 
 // CrawlComments 爬取评论的主要函数
@@ -535,4 +629,164 @@ func (bcc *BilibiliCommentCrawler) Close() error {
 		return bcc.db.Close()
 	}
 	return nil
+}
+
+// NewBilibiliVideoSearcher 创建新的B站视频搜索器实例
+func NewBilibiliVideoSearcher(config *Config) (*BilibiliVideoSearcher, error) {
+	// 初始化数据库
+	db, err := getDBConnection(config.OutputPath)
+	if err != nil {
+		return nil, fmt.Errorf("初始化数据库失败: %v", err)
+	}
+
+	// 读取cookie
+	cookie, err := readCookie(config.CookiePath)
+	if err != nil {
+		return nil, fmt.Errorf("读取cookie失败: %v", err)
+	}
+
+	return &BilibiliVideoSearcher{
+		db:     db,
+		cookie: cookie,
+		config: config,
+	}, nil
+}
+
+// getSearchHeader 获取搜索请求头
+func (bvs *BilibiliVideoSearcher) getSearchHeader() map[string]string {
+	return map[string]string{
+		"Cookie":     bvs.cookie,
+		"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:135.0) Gecko/20100101 Firefox/135.0",
+		"Referer":    "https://search.bilibili.com/",
+	}
+}
+
+// SearchVideos 搜索视频
+func (bvs *BilibiliVideoSearcher) SearchVideos(keyword string, page int, pageSize int) ([]VideoInfo, error) {
+	// 构建搜索URL
+	searchURL := fmt.Sprintf("https://api.bilibili.com/x/web-interface/wbi/search/all/v2?keyword=%s&page=%d&page_size=%d&platform=pc",
+		url.QueryEscape(keyword), page, pageSize)
+
+	// 发送请求
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("GET", searchURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// 设置请求头
+	for key, value := range bvs.getSearchHeader() {
+		req.Header.Set(key, value)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// 解析JSON响应
+	var searchResp SearchResponse
+	if err := json.Unmarshal(body, &searchResp); err != nil {
+		return nil, err
+	}
+
+	// 处理搜索结果
+	var videos []VideoInfo
+	for _, result := range searchResp.Data.Result {
+		if result.ResultType == "video" {
+			for _, videoData := range result.Data {
+				if videoData.Type == "video" {
+					video := VideoInfo{
+						Keyword:     keyword,
+						BVID:        videoData.BVID,
+						Title:       cleanHTMLTags(videoData.Title),
+						Author:      videoData.Author,
+						Play:        videoData.Play,
+						VideoReview: videoData.VideoReview,
+						Favorites:   videoData.Favorites,
+						PubDate:     videoData.PubDate,
+						Duration:    videoData.Duration,
+						Like:        videoData.Like,
+						Danmaku:     videoData.Danmaku,
+						Description: cleanHTMLTags(videoData.Description),
+						Pic:         videoData.Pic,
+						CreateTime:  time.Now().Format("2006-01-02 15:04:05"),
+					}
+					videos = append(videos, video)
+				}
+			}
+		}
+	}
+
+	return videos, nil
+}
+
+// SaveVideoToDB 保存视频信息到数据库
+func (bvs *BilibiliVideoSearcher) SaveVideoToDB(video VideoInfo) error {
+	sql := `
+	INSERT OR IGNORE INTO bilibili_videos 
+	(keyword, bvid, title, author, play, video_review, favorites, pubdate, duration, like_count, danmaku, description, pic, create_time)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+	_, err := bvs.db.Exec(sql,
+		video.Keyword, video.BVID, video.Title, video.Author,
+		video.Play, video.VideoReview, video.Favorites, video.PubDate,
+		video.Duration, video.Like, video.Danmaku, video.Description,
+		video.Pic, video.CreateTime)
+
+	return err
+}
+
+// Close 关闭数据库连接
+func (bvs *BilibiliVideoSearcher) Close() error {
+	if bvs.db != nil {
+		return bvs.db.Close()
+	}
+	return nil
+}
+
+// QueryVideos 查询数据库中的视频信息
+func (bvs *BilibiliVideoSearcher) QueryVideos(keyword string, limit int) ([]VideoInfo, error) {
+	var sql string
+	var args []interface{}
+
+	if keyword != "" {
+		sql = `SELECT keyword, bvid, title, author, play, video_review, favorites, pubdate, duration, like_count, danmaku, description, pic, create_time 
+			   FROM bilibili_videos WHERE keyword = ? ORDER BY play DESC LIMIT ?`
+		args = []interface{}{keyword, limit}
+	} else {
+		sql = `SELECT keyword, bvid, title, author, play, video_review, favorites, pubdate, duration, like_count, danmaku, description, pic, create_time 
+			   FROM bilibili_videos ORDER BY play DESC LIMIT ?`
+		args = []interface{}{limit}
+	}
+
+	rows, err := bvs.db.Query(sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var videos []VideoInfo
+	for rows.Next() {
+		var video VideoInfo
+		err := rows.Scan(
+			&video.Keyword, &video.BVID, &video.Title, &video.Author,
+			&video.Play, &video.VideoReview, &video.Favorites, &video.PubDate,
+			&video.Duration, &video.Like, &video.Danmaku, &video.Description,
+			&video.Pic, &video.CreateTime,
+		)
+		if err != nil {
+			return nil, err
+		}
+		videos = append(videos, video)
+	}
+
+	return videos, nil
 }

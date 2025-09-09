@@ -13,14 +13,14 @@ all: build
 # 构建二进制文件
 build:
 	@echo "构建 $(BINARY_NAME)..."
-	@go build -o $(BINARY_NAME) $(MAIN_FILE)
+	@CGO_ENABLED=1 go build -o $(BINARY_NAME) $(MAIN_FILE)
 	@echo "构建完成: $(BINARY_NAME)"
 
 # 构建到指定目录
 build-to-dir:
 	@echo "构建 $(BINARY_NAME) 到 $(BUILD_DIR)..."
 	@mkdir -p $(BUILD_DIR)
-	@go build -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_FILE)
+	@CGO_ENABLED=1 go build -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_FILE)
 	@echo "构建完成: $(BUILD_DIR)/$(BINARY_NAME)"
 
 # 交叉编译
@@ -29,17 +29,17 @@ build-all: build-linux build-windows build-darwin
 build-linux:
 	@echo "构建 Linux 版本..."
 	@mkdir -p $(BUILD_DIR)
-	@GOOS=linux GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_FILE)
+	@CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_FILE)
 
 build-windows:
 	@echo "构建 Windows 版本..."
 	@mkdir -p $(BUILD_DIR)
-	@GOOS=windows GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_FILE)
+	@CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_FILE)
 
 build-darwin:
 	@echo "构建 macOS 版本..."
 	@mkdir -p $(BUILD_DIR)
-	@GOOS=darwin GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_FILE)
+	@CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_FILE)
 
 # 清理构建文件
 clean:
@@ -80,6 +80,16 @@ example: build
 	@echo "运行示例..."
 	@./$(BINARY_NAME) --help
 
+# 搜索示例
+search-example: build
+	@echo "运行搜索示例..."
+	@./$(BINARY_NAME) search 极氪001 --page-size=3
+
+# 查询示例
+query-example: build
+	@echo "运行查询示例..."
+	@./$(BINARY_NAME) query-videos --list=5
+
 # 显示帮助
 help:
 	@echo "可用的命令:"
@@ -96,4 +106,6 @@ help:
 	@echo "  vet            检查代码"
 	@echo "  deps           更新依赖"
 	@echo "  example        运行示例"
+	@echo "  search-example 运行搜索示例"
+	@echo "  query-example  运行查询示例"
 	@echo "  help           显示帮助信息"
