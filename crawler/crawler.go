@@ -792,7 +792,37 @@ func (bvs *BilibiliVideoSearcher) QueryVideos(keyword string, limit int) ([]Vide
 	return videos, nil
 }
 
-// NewsInfo Gamersky新闻信息结构体
+// APIResponse API响应结构体
+type APIResponse struct {
+	ErrorCode    int           `json:"errorCode"`
+	ErrorMessage string        `json:"errorMessage"`
+	WatchTimes   []interface{} `json:"watchTimes"`
+	WatchTime    float64       `json:"watchTime"`
+	Result       []APINewsItem `json:"result"`
+}
+
+// APINewsItem API返回的新闻项
+type APINewsItem struct {
+	WapShowType              string `json:"WapShowType"`
+	ArticleID                int    `json:"ArticleID"`
+	Title                    string `json:"Title"`
+	WapTopLineTimeTodayLabel string `json:"WapTopLineTimeTodayLabel"`
+	WapArticleUrl            string `json:"WapArticleUrl"`
+	WapSanTuArticlePic       string `json:"WapSanTuArticlePic"`
+	TopLineTime              string `json:"TopLineTime"`
+}
+
+// APIRequest API请求结构体
+type APIRequest struct {
+	Request APIRequestData `json:"request"`
+}
+
+// APIRequestData API请求数据
+type APIRequestData struct {
+	PageSize  int `json:"pageSize"`
+	CacheTime int `json:"cacheTime"`
+	PageIndex int `json:"pageIndex"`
+}
 type NewsInfo struct {
 	SID         string `json:"sid"`          // 新闻ID (data-sid)
 	Title       string `json:"title"`        // 新闻标题
@@ -868,6 +898,108 @@ func getGamerskyDBConnection(dbPath string) (*sql.DB, error) {
 
 // CrawlNews 爬取Gamersky新闻
 func (gnc *GamerskyNewsCrawler) CrawlNews(page int) (int, error) {
+	if page == 1 {
+		// 第一页使用Colly爬取（保持原有逻辑）
+		return gnc.crawlFirstPage()
+	} else {
+		// 后续页面使用API
+		return gnc.crawlAPIPage(page)
+	}
+}
+
+// crawlAPIPage 使用API爬取指定页面
+func (gnc *GamerskyNewsCrawler) crawlAPIPage(page int) (int, error) {
+	// 构造API请求
+	requestData := APIRequest{
+		Request: APIRequestData{
+			PageSize:  15,
+			CacheTime: 1,
+			PageIndex: page,
+		},
+	}
+
+	// 序列化请求数据
+	jsonData, err := json.Marshal(requestData)
+	if err != nil {
+		return 0, fmt.Errorf("序列化请求数据失败: %v", err)
+	}
+
+	// 创建HTTP客户端
+	client := &http.Client{Timeout: 30 * time.Second}
+
+	// 创建请求
+	req, err := http.NewRequest("POST", "https://appapi2.gamersky.com/v6/GetWapIndex", strings.NewReader(string(jsonData)))
+	if err != nil {
+		return 0, fmt.Errorf("创建请求失败: %v", err)
+	}
+
+	// 设置请求头
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36")
+
+	// 发送请求
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("发送请求失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// 读取响应
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, fmt.Errorf("读取响应失败: %v", err)
+	}
+
+	log.Printf("API响应状态: %d, 大小: %d bytes", resp.StatusCode, len(body))
+
+	// 解析JSON响应
+	var apiResponse APIResponse
+	if err := json.Unmarshal(body, &apiResponse); err != nil {
+		return 0, fmt.Errorf("解析JSON失败: %v", err)
+	}
+
+	// 检查API错误
+	if apiResponse.ErrorCode != 0 {
+		return 0, fmt.Errorf("API错误: %s (代码: %d)", apiResponse.ErrorMessage, apiResponse.ErrorCode)
+	}
+
+	// 处理新闻数据
+	count := 0
+	for _, item := range apiResponse.Result {
+		// 转换为统一的新闻格式
+		news := &NewsInfo{
+			SID:         fmt.Sprintf("%d", item.ArticleID),
+			Title:       item.Title,
+			Time:        item.WapTopLineTimeTodayLabel,
+			URL:         item.WapArticleUrl,
+			TopLineTime: item.TopLineTime,
+			CreateTime:  time.Now().Format("2006-01-02 15:04:05"),
+		}
+
+		// 从HTML图片标签中提取图片URL
+		if item.WapSanTuArticlePic != "" {
+			imgRegex := regexp.MustCompile(`src=['"]([^'"]*?)['"]`)
+			if matches := imgRegex.FindStringSubmatch(item.WapSanTuArticlePic); len(matches) > 1 {
+				news.ImageURL = matches[1]
+			}
+		}
+
+		// 保存新闻到数据库（去重）
+		if err := gnc.saveNewsToDB(news); err != nil {
+			log.Printf("保存新闻失败 (SID: %s): %v", news.SID, err)
+			continue
+		}
+
+		count++
+		log.Printf("API爬取新闻: %s - %s", news.SID, news.Title)
+	}
+
+	log.Printf("API第 %d 页完成，共 %d 条新闻", page, len(apiResponse.Result))
+	return count, nil
+}
+
+// crawlFirstPage 爬取第一页
+func (gnc *GamerskyNewsCrawler) crawlFirstPage() (int, error) {
 	// 创建 Colly 收集器
 	c := colly.NewCollector(
 		// 设置允许的域名
@@ -960,19 +1092,8 @@ func (gnc *GamerskyNewsCrawler) CrawlNews(page int) (int, error) {
 			r.Request.URL, r.StatusCode, len(r.Body))
 	})
 
-	// 构建URL
-	var targetURL string
-	if page == 1 {
-		targetURL = "https://wap.gamersky.com/"
-	} else {
-		// 对于多页，这里需要实现AJAX请求
-		// 根据网站的加载更多机制，可能需要构造特殊的请求
-		log.Printf("注意：第 %d 页需要通过AJAX加载，当前实现仅支持第一页", page)
-		return 0, nil
-	}
-
 	// 开始爬取
-	err := c.Visit(targetURL)
+	err := c.Visit("https://wap.gamersky.com/")
 	if err != nil {
 		return 0, fmt.Errorf("访问页面失败: %v", err)
 	}
