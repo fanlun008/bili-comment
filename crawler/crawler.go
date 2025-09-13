@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gocolly/colly/v2"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -789,4 +790,261 @@ func (bvs *BilibiliVideoSearcher) QueryVideos(keyword string, limit int) ([]Vide
 	}
 
 	return videos, nil
+}
+
+// NewsInfo Gamersky新闻信息结构体
+type NewsInfo struct {
+	SID         string `json:"sid"`          // 新闻ID (data-sid)
+	Title       string `json:"title"`        // 新闻标题
+	Time        string `json:"time"`         // 发布时间
+	CommentNum  int    `json:"comment_num"`  // 评论数
+	URL         string `json:"url"`          // 新闻链接
+	ImageURL    string `json:"image_url"`    // 图片链接
+	CreateTime  string `json:"create_time"`  // 记录创建时间
+	TopLineTime string `json:"topline_time"` // 置顶时间
+}
+
+// GamerskyNewsCrawler Gamersky新闻爬虫结构体
+type GamerskyNewsCrawler struct {
+	db     *sql.DB
+	config *Config
+}
+
+// NewGamerskyNewsCrawler 创建新的Gamersky新闻爬虫实例
+func NewGamerskyNewsCrawler(config *Config) (*GamerskyNewsCrawler, error) {
+	// 初始化数据库
+	db, err := getGamerskyDBConnection(config.OutputPath)
+	if err != nil {
+		return nil, fmt.Errorf("数据库连接失败: %v", err)
+	}
+
+	return &GamerskyNewsCrawler{
+		db:     db,
+		config: config,
+	}, nil
+}
+
+// getGamerskyDBConnection 获取Gamersky数据库连接
+func getGamerskyDBConnection(dbPath string) (*sql.DB, error) {
+	if dbPath == "" {
+		dbPath = "./data/gamersky.db"
+	}
+
+	// 创建目录
+	dir := strings.TrimSuffix(dbPath, "/gamersky.db")
+	if dir != dbPath {
+		err := os.MkdirAll(dir, 0755)
+		if err != nil {
+			return nil, fmt.Errorf("创建目录失败: %v", err)
+		}
+	}
+
+	// 连接数据库
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		return nil, fmt.Errorf("打开数据库失败: %v", err)
+	}
+
+	// 创建新闻表
+	createNewsTableSQL := `
+	CREATE TABLE IF NOT EXISTS gamersky_news (
+		sid TEXT PRIMARY KEY,
+		title TEXT NOT NULL,
+		time TEXT,
+		comment_num INTEGER DEFAULT 0,
+		url TEXT,
+		image_url TEXT,
+		topline_time TEXT,
+		create_time TEXT DEFAULT CURRENT_TIMESTAMP
+	)`
+
+	_, err = db.Exec(createNewsTableSQL)
+	if err != nil {
+		return nil, fmt.Errorf("创建表失败: %v", err)
+	}
+
+	return db, nil
+}
+
+// CrawlNews 爬取Gamersky新闻
+func (gnc *GamerskyNewsCrawler) CrawlNews(page int) (int, error) {
+	// 创建 Colly 收集器
+	c := colly.NewCollector(
+		// 设置允许的域名
+		colly.AllowedDomains("wap.gamersky.com"),
+	)
+
+	// 设置用户代理和请求头
+	c.UserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"
+
+	// 设置请求延迟
+	c.Limit(&colly.LimitRule{
+		DomainGlob:  "*",
+		Parallelism: 1,
+		Delay:       gnc.config.RequestDelay,
+	})
+
+	count := 0
+
+	// 查找新闻列表项
+	c.OnHTML("li[data-id]", func(e *colly.HTMLElement) {
+		// 提取新闻信息
+		news := &NewsInfo{
+			SID:         e.Attr("data-id"),
+			TopLineTime: e.Attr("data-toplinetime"),
+			CreateTime:  time.Now().Format("2006-01-02 15:04:05"),
+		}
+
+		// 提取标题 - 从 titleAndTime 内的 h5 标签
+		titleElement := e.DOM.Find(".titleAndTime h5")
+		if titleElement.Length() > 0 {
+			news.Title = strings.TrimSpace(titleElement.Text())
+		}
+
+		// 提取时间 - 从 time 标签
+		timeElement := e.DOM.Find("time")
+		if timeElement.Length() > 0 {
+			news.Time = strings.TrimSpace(timeElement.Text())
+		}
+
+		// 提取评论数 - 从 commentNum 类的 span
+		commentElement := e.DOM.Find(".commentNum")
+		if commentElement.Length() > 0 {
+			if commentText := strings.TrimSpace(commentElement.Text()); commentText != "" {
+				if commentNum, err := strconv.Atoi(commentText); err == nil {
+					news.CommentNum = commentNum
+				}
+			}
+		}
+
+		// 提取链接 - 从 a 标签的 href
+		linkElement := e.DOM.Find("a")
+		if linkElement.Length() > 0 {
+			news.URL = linkElement.AttrOr("href", "")
+		}
+
+		// 提取图片链接 - 从 img 标签的 src
+		imgElement := e.DOM.Find("img")
+		if imgElement.Length() > 0 {
+			news.ImageURL = imgElement.AttrOr("src", "")
+		}
+
+		// 只处理有标题的新闻
+		if news.Title != "" {
+			// 保存新闻到数据库（去重）
+			if err := gnc.saveNewsToDB(news); err != nil {
+				log.Printf("保存新闻失败 (SID: %s): %v", news.SID, err)
+			} else {
+				count++
+				log.Printf("爬取新闻: %s - %s", news.SID, news.Title)
+			}
+		}
+	})
+
+	// 查找"点击加载更多"按钮，用于获取后续页面
+	var nextPageFound bool
+	c.OnHTML("a.clickLoadMoreBtn", func(e *colly.HTMLElement) {
+		nextPageFound = true
+		dataNum := e.Attr("data-num")
+		log.Printf("找到加载更多按钮，当前页数：%s", dataNum)
+	})
+
+	// 错误处理
+	c.OnError(func(r *colly.Response, err error) {
+		log.Printf("请求失败: %s, 错误: %v", r.Request.URL, err)
+	})
+
+	// 请求完成处理
+	c.OnResponse(func(r *colly.Response) {
+		log.Printf("收到响应: %s, 状态码: %d, 大小: %d bytes",
+			r.Request.URL, r.StatusCode, len(r.Body))
+	})
+
+	// 构建URL
+	var targetURL string
+	if page == 1 {
+		targetURL = "https://wap.gamersky.com/"
+	} else {
+		// 对于多页，这里需要实现AJAX请求
+		// 根据网站的加载更多机制，可能需要构造特殊的请求
+		log.Printf("注意：第 %d 页需要通过AJAX加载，当前实现仅支持第一页", page)
+		return 0, nil
+	}
+
+	// 开始爬取
+	err := c.Visit(targetURL)
+	if err != nil {
+		return 0, fmt.Errorf("访问页面失败: %v", err)
+	}
+
+	// 等待所有请求完成
+	c.Wait()
+
+	log.Printf("页面是否有加载更多按钮: %t", nextPageFound)
+	return count, nil
+}
+
+// saveNewsToDB 保存新闻到数据库
+func (gnc *GamerskyNewsCrawler) saveNewsToDB(news *NewsInfo) error {
+	// 使用 INSERT OR IGNORE 来实现去重
+	sql := `
+	INSERT OR IGNORE INTO gamersky_news 
+	(sid, title, time, comment_num, url, image_url, topline_time, create_time)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+	_, err := gnc.db.Exec(sql,
+		news.SID, news.Title, news.Time, news.CommentNum,
+		news.URL, news.ImageURL, news.TopLineTime, news.CreateTime)
+
+	return err
+}
+
+// Close 关闭数据库连接
+func (gnc *GamerskyNewsCrawler) Close() error {
+	if gnc.db != nil {
+		return gnc.db.Close()
+	}
+	return nil
+}
+
+// QueryNews 查询数据库中的新闻
+func (gnc *GamerskyNewsCrawler) QueryNews(limit int) ([]NewsInfo, error) {
+	var query string
+	var args []interface{}
+
+	if limit > 0 {
+		query = `
+		SELECT sid, title, time, comment_num, url, image_url, topline_time, create_time 
+		FROM gamersky_news 
+		ORDER BY create_time DESC 
+		LIMIT ?`
+		args = append(args, limit)
+	} else {
+		query = `
+		SELECT sid, title, time, comment_num, url, image_url, topline_time, create_time 
+		FROM gamersky_news 
+		ORDER BY create_time DESC`
+	}
+
+	rows, err := gnc.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var news []NewsInfo
+	for rows.Next() {
+		var item NewsInfo
+		err := rows.Scan(
+			&item.SID, &item.Title, &item.Time, &item.CommentNum,
+			&item.URL, &item.ImageURL, &item.TopLineTime, &item.CreateTime,
+		)
+		if err != nil {
+			return nil, err
+		}
+		news = append(news, item)
+	}
+
+	return news, nil
 }
