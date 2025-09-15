@@ -834,8 +834,107 @@ type NewsInfo struct {
 	TopLineTime string `json:"topline_time"` // 置顶时间
 }
 
+// GamerskyComment 游戏天空评论信息结构体
+type GamerskyComment struct {
+	ID                 int64  `json:"id"`                   // 评论ID
+	ArticleID          string `json:"article_id"`           // 文章ID
+	UserID             int    `json:"user_id"`              // 用户ID
+	Username           string `json:"username"`             // 用户名
+	Content            string `json:"content"`              // 评论内容
+	CommentTime        string `json:"comment_time"`         // 评论时间
+	SupportCount       int    `json:"support_count"`        // 点赞数
+	ReplyCount         int    `json:"reply_count"`          // 回复数
+	ParentID           int64  `json:"parent_id"`            // 父评论ID (0表示一级评论)
+	UserAvatar         string `json:"user_avatar"`          // 用户头像
+	UserLevel          int    `json:"user_level"`           // 用户等级
+	IPLocation         string `json:"ip_location"`          // IP位置
+	DeviceName         string `json:"device_name"`          // 设备名称
+	FloorNumber        int    `json:"floor_number"`         // 楼层号
+	IsTuijian          bool   `json:"is_tuijian"`           // 是否推荐
+	IsAuthor           bool   `json:"is_author"`            // 是否作者
+	IsBest             bool   `json:"is_best"`              // 是否最佳
+	UserAuthentication string `json:"user_authentication"`  // 用户认证
+	UserGroupID        int    `json:"user_group_id"`        // 用户组ID
+	ThirdPlatformBound string `json:"third_platform_bound"` // 第三方平台绑定
+	CreateTime         string `json:"create_time"`          // 记录创建时间
+}
+
+// CommentAPIRequest 评论API请求结构体
+type CommentAPIRequest struct {
+	ArticleID       string `json:"articleId"`
+	MinPraisesCount int    `json:"minPraisesCount"`
+	RepliesMaxCount int    `json:"repliesMaxCount"`
+	PageIndex       int    `json:"pageIndex"`
+	PageSize        int    `json:"pageSize"`
+	Order           string `json:"order"`
+}
+
+// CommentAPIResponse 评论API响应结构体
+type CommentAPIResponse struct {
+	ErrorCode    int    `json:"errorCode"`
+	ErrorMessage string `json:"errorMessage"`
+	Result       struct {
+		CommentsCount int `json:"commentsCount"`
+		IsUpdateImage int `json:"isUpdateImage"`
+		Comments      []struct {
+			CommentID          int64         `json:"comment_id"`
+			CreateTime         int64         `json:"create_time"`
+			LastJoinTime       int64         `json:"last_join_time"`
+			IsTuijian          bool          `json:"is_tuijian"`
+			IsAuthor           bool          `json:"is_author"`
+			IsBest             bool          `json:"is_best"`
+			BeAuthorPraise     bool          `json:"beAuthorPraise"`
+			From               int           `json:"from"`
+			Content            string        `json:"content"`
+			SupportCount       int           `json:"support_count"`
+			IPLocation         string        `json:"ip_location"`
+			UserID             int           `json:"user_id"`
+			Nickname           string        `json:"nickname"`
+			ImgURL             string        `json:"img_url"`
+			DeviceName         string        `json:"deviceName"`
+			UserLevel          int           `json:"userLevel"`
+			UserAuthentication string        `json:"userAuthentication"`
+			UserGroupID        int           `json:"userGroupId"`
+			FloorNumber        int           `json:"floorNumber"`
+			ImageInfes         []interface{} `json:"imageInfes"`
+			ThirdPlatformBound string        `json:"thirdPlatformBound"`
+			Comments           interface{}   `json:"comments"`
+			Replies            []struct {
+				CommentID          int64         `json:"comment_id"`
+				CreateTime         int64         `json:"create_time"`
+				LastJoinTime       int64         `json:"last_join_time"`
+				IsTuijian          bool          `json:"is_tuijian"`
+				IsAuthor           bool          `json:"is_author"`
+				IsBest             bool          `json:"is_best"`
+				BeAuthorPraise     bool          `json:"beAuthorPraise"`
+				From               int           `json:"from"`
+				Content            string        `json:"content"`
+				SupportCount       int           `json:"support_count"`
+				IPLocation         string        `json:"ip_location"`
+				UserID             int           `json:"user_id"`
+				Nickname           string        `json:"nickname"`
+				ImgURL             string        `json:"img_url"`
+				DeviceName         string        `json:"deviceName"`
+				UserLevel          int           `json:"userLevel"`
+				UserAuthentication string        `json:"userAuthentication"`
+				UserGroupID        int           `json:"userGroupId"`
+				FloorNumber        int           `json:"floorNumber"`
+				ImageInfes         []interface{} `json:"imageInfes"`
+				ThirdPlatformBound string        `json:"thirdPlatformBound"`
+			} `json:"replies"`
+			RepliesCount int `json:"repliesCount"`
+		} `json:"comments"`
+	} `json:"result"`
+}
+
 // GamerskyNewsCrawler Gamersky新闻爬虫结构体
 type GamerskyNewsCrawler struct {
+	db     *sql.DB
+	config *Config
+}
+
+// GamerskyCommentCrawler Gamersky评论爬虫结构体
+type GamerskyCommentCrawler struct {
 	db     *sql.DB
 	config *Config
 }
@@ -891,6 +990,38 @@ func getGamerskyDBConnection(dbPath string) (*sql.DB, error) {
 	_, err = db.Exec(createNewsTableSQL)
 	if err != nil {
 		return nil, fmt.Errorf("创建表失败: %v", err)
+	}
+
+	// 创建评论表
+	createCommentTableSQL := `
+	CREATE TABLE IF NOT EXISTS gamersky_comments (
+		id INTEGER PRIMARY KEY,
+		article_id TEXT NOT NULL,
+		user_id INTEGER,
+		username TEXT,
+		content TEXT,
+		comment_time TEXT,
+		support_count INTEGER DEFAULT 0,
+		reply_count INTEGER DEFAULT 0,
+		parent_id INTEGER DEFAULT 0,
+		user_avatar TEXT,
+		user_level INTEGER DEFAULT 0,
+		ip_location TEXT,
+		device_name TEXT,
+		floor_number INTEGER DEFAULT 0,
+		is_tuijian BOOLEAN DEFAULT FALSE,
+		is_author BOOLEAN DEFAULT FALSE,
+		is_best BOOLEAN DEFAULT FALSE,
+		user_authentication TEXT,
+		user_group_id INTEGER DEFAULT 0,
+		third_platform_bound TEXT,
+		create_time TEXT DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(id, article_id)
+	)`
+
+	_, err = db.Exec(createCommentTableSQL)
+	if err != nil {
+		return nil, fmt.Errorf("创建评论表失败: %v", err)
 	}
 
 	return db, nil
@@ -1168,4 +1299,297 @@ func (gnc *GamerskyNewsCrawler) QueryNews(limit int) ([]NewsInfo, error) {
 	}
 
 	return news, nil
+}
+
+// NewGamerskyCommentCrawler 创建新的Gamersky评论爬虫实例
+func NewGamerskyCommentCrawler(config *Config) (*GamerskyCommentCrawler, error) {
+	// 初始化数据库
+	db, err := getGamerskyDBConnection(config.OutputPath)
+	if err != nil {
+		return nil, fmt.Errorf("数据库连接失败: %v", err)
+	}
+
+	return &GamerskyCommentCrawler{
+		db:     db,
+		config: config,
+	}, nil
+}
+
+// CrawlComments 爬取指定文章的评论
+func (gcc *GamerskyCommentCrawler) CrawlComments(articleID string, maxPages int) (int, error) {
+	totalCount := 0
+
+	for page := 1; page <= maxPages; page++ {
+		log.Printf("正在爬取文章 %s 第 %d 页评论...", articleID, page)
+
+		count, hasMore, err := gcc.crawlCommentsPage(articleID, page)
+		if err != nil {
+			log.Printf("爬取第 %d 页评论失败: %v", page, err)
+			continue
+		}
+
+		totalCount += count
+		log.Printf("第 %d 页爬取完成，新增 %d 条评论", page, count)
+
+		// 如果没有更多评论了，停止爬取
+		if !hasMore || count == 0 {
+			log.Printf("第 %d 页没有更多评论，停止爬取", page)
+			break
+		}
+
+		// 延迟
+		if page < maxPages {
+			time.Sleep(gcc.config.RequestDelay)
+		}
+	}
+
+	return totalCount, nil
+}
+
+// crawlCommentsPage 爬取指定页面的评论
+func (gcc *GamerskyCommentCrawler) crawlCommentsPage(articleID string, pageIndex int) (int, bool, error) {
+	// 构造API请求
+	requestData := CommentAPIRequest{
+		ArticleID:       articleID,
+		MinPraisesCount: 0,
+		RepliesMaxCount: 10,
+		PageIndex:       pageIndex,
+		PageSize:        20,
+		Order:           "tuiJian",
+	}
+
+	// 序列化请求数据为JSON
+	jsonData, err := json.Marshal(requestData)
+	if err != nil {
+		return 0, false, fmt.Errorf("序列化请求数据失败: %v", err)
+	}
+
+	// URL编码JSON数据
+	encodedRequest := url.QueryEscape(string(jsonData))
+
+	// 构造完整的API URL
+	apiURL := fmt.Sprintf("https://cm.gamersky.com/appapi/GetArticleCommentWithClubStyle?request=%s", encodedRequest)
+
+	// 创建HTTP客户端
+	client := &http.Client{Timeout: 30 * time.Second}
+
+	// 创建请求
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return 0, false, fmt.Errorf("创建请求失败: %v", err)
+	}
+
+	// 设置请求头
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36")
+	req.Header.Set("Referer", "https://www.gamersky.com/")
+
+	// 发送请求
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, false, fmt.Errorf("发送请求失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// 读取响应
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, false, fmt.Errorf("读取响应失败: %v", err)
+	}
+
+	log.Printf("评论API响应状态: %d, 大小: %d bytes", resp.StatusCode, len(body))
+
+	// 解析JSON响应
+	var apiResponse CommentAPIResponse
+	if err := json.Unmarshal(body, &apiResponse); err != nil {
+		return 0, false, fmt.Errorf("解析JSON失败: %v, 响应内容: %s", err, string(body[:min(200, len(body))]))
+	}
+
+	// 检查API错误
+	if apiResponse.ErrorCode != 0 {
+		return 0, false, fmt.Errorf("API错误: %s (代码: %d)", apiResponse.ErrorMessage, apiResponse.ErrorCode)
+	}
+
+	// 处理评论数据
+	count := 0
+	for _, comment := range apiResponse.Result.Comments {
+		// 保存一级评论
+		gamerskyComment := &GamerskyComment{
+			ID:                 comment.CommentID,
+			ArticleID:          articleID,
+			UserID:             comment.UserID,
+			Username:           comment.Nickname,
+			Content:            comment.Content,
+			CommentTime:        time.Unix(comment.CreateTime/1000, 0).Format("2006-01-02 15:04:05"),
+			SupportCount:       comment.SupportCount,
+			ReplyCount:         comment.RepliesCount,
+			ParentID:           0, // 一级评论父ID为0
+			UserAvatar:         comment.ImgURL,
+			UserLevel:          comment.UserLevel,
+			IPLocation:         comment.IPLocation,
+			DeviceName:         comment.DeviceName,
+			FloorNumber:        comment.FloorNumber,
+			IsTuijian:          comment.IsTuijian,
+			IsAuthor:           comment.IsAuthor,
+			IsBest:             comment.IsBest,
+			UserAuthentication: comment.UserAuthentication,
+			UserGroupID:        comment.UserGroupID,
+			ThirdPlatformBound: comment.ThirdPlatformBound,
+			CreateTime:         time.Now().Format("2006-01-02 15:04:05"),
+		}
+
+		if err := gcc.saveCommentToDB(gamerskyComment); err != nil {
+			log.Printf("保存评论失败 (ID: %d): %v", comment.CommentID, err)
+		} else {
+			count++
+			log.Printf("保存评论: %d - %s", comment.CommentID, comment.Nickname)
+		}
+
+		// 处理回复（二级评论）
+		for _, reply := range comment.Replies {
+			// 跳过无效的回复数据
+			if reply.CommentID == 0 || reply.Nickname == "" {
+				log.Printf("跳过无效回复数据: ID=%d, Nickname=%s", reply.CommentID, reply.Nickname)
+				continue
+			}
+
+			replyComment := &GamerskyComment{
+				ID:                 reply.CommentID,
+				ArticleID:          articleID,
+				UserID:             reply.UserID,
+				Username:           reply.Nickname,
+				Content:            reply.Content,
+				CommentTime:        time.Unix(reply.CreateTime/1000, 0).Format("2006-01-02 15:04:05"),
+				SupportCount:       reply.SupportCount,
+				ReplyCount:         0,                 // 二级评论通常没有回复数
+				ParentID:           comment.CommentID, // 父评论ID
+				UserAvatar:         reply.ImgURL,
+				UserLevel:          reply.UserLevel,
+				IPLocation:         reply.IPLocation,
+				DeviceName:         reply.DeviceName,
+				FloorNumber:        reply.FloorNumber,
+				IsTuijian:          reply.IsTuijian,
+				IsAuthor:           reply.IsAuthor,
+				IsBest:             reply.IsBest,
+				UserAuthentication: reply.UserAuthentication,
+				UserGroupID:        reply.UserGroupID,
+				ThirdPlatformBound: reply.ThirdPlatformBound,
+				CreateTime:         time.Now().Format("2006-01-02 15:04:05"),
+			}
+
+			if err := gcc.saveCommentToDB(replyComment); err != nil {
+				log.Printf("保存回复失败 (ID: %d): %v", reply.CommentID, err)
+			} else {
+				count++
+				log.Printf("保存回复: %d - %s", reply.CommentID, reply.Nickname)
+			}
+		}
+	}
+
+	// 判断是否还有更多页面（简单判断：如果返回的评论数量等于请求的pageSize，则可能还有更多）
+	hasMore := len(apiResponse.Result.Comments) >= 20 // pageSize为20
+
+	log.Printf("文章 %s 第 %d 页完成，共 %d 条评论",
+		articleID, pageIndex, len(apiResponse.Result.Comments))
+
+	return count, hasMore, nil
+}
+
+// saveCommentToDB 保存评论到数据库
+func (gcc *GamerskyCommentCrawler) saveCommentToDB(comment *GamerskyComment) error {
+	// 使用 INSERT OR IGNORE 来实现去重
+	sql := `
+	INSERT OR IGNORE INTO gamersky_comments 
+	(id, article_id, user_id, username, content, comment_time, support_count, reply_count, parent_id, user_avatar, user_level, ip_location, device_name, floor_number, is_tuijian, is_author, is_best, user_authentication, user_group_id, third_platform_bound, create_time)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+	_, err := gcc.db.Exec(sql,
+		comment.ID, comment.ArticleID, comment.UserID, comment.Username,
+		comment.Content, comment.CommentTime, comment.SupportCount, comment.ReplyCount,
+		comment.ParentID, comment.UserAvatar, comment.UserLevel, comment.IPLocation,
+		comment.DeviceName, comment.FloorNumber, comment.IsTuijian, comment.IsAuthor,
+		comment.IsBest, comment.UserAuthentication, comment.UserGroupID, comment.ThirdPlatformBound,
+		comment.CreateTime)
+
+	return err
+}
+
+// QueryComments 查询数据库中的评论
+func (gcc *GamerskyCommentCrawler) QueryComments(articleID string, limit int) ([]GamerskyComment, error) {
+	var query string
+	var args []interface{}
+
+	if articleID != "" {
+		if limit > 0 {
+			query = `
+			SELECT id, article_id, user_id, username, content, comment_time, support_count, reply_count, parent_id, user_avatar, user_level, ip_location, device_name, floor_number, is_tuijian, is_author, is_best, user_authentication, user_group_id, third_platform_bound, create_time 
+			FROM gamersky_comments 
+			WHERE article_id = ? 
+			ORDER BY id ASC 
+			LIMIT ?`
+			args = append(args, articleID, limit)
+		} else {
+			query = `
+			SELECT id, article_id, user_id, username, content, comment_time, support_count, reply_count, parent_id, user_avatar, user_level, ip_location, device_name, floor_number, is_tuijian, is_author, is_best, user_authentication, user_group_id, third_platform_bound, create_time 
+			FROM gamersky_comments 
+			WHERE article_id = ? 
+			ORDER BY id ASC`
+			args = append(args, articleID)
+		}
+	} else {
+		if limit > 0 {
+			query = `
+			SELECT id, article_id, user_id, username, content, comment_time, support_count, reply_count, parent_id, user_avatar, user_level, ip_location, device_name, floor_number, is_tuijian, is_author, is_best, user_authentication, user_group_id, third_platform_bound, create_time 
+			FROM gamersky_comments 
+			ORDER BY create_time DESC 
+			LIMIT ?`
+			args = append(args, limit)
+		} else {
+			query = `
+			SELECT id, article_id, user_id, username, content, comment_time, support_count, reply_count, parent_id, user_avatar, user_level, ip_location, device_name, floor_number, is_tuijian, is_author, is_best, user_authentication, user_group_id, third_platform_bound, create_time 
+			FROM gamersky_comments 
+			ORDER BY create_time DESC`
+		}
+	}
+
+	rows, err := gcc.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var comments []GamerskyComment
+	for rows.Next() {
+		var comment GamerskyComment
+		err := rows.Scan(
+			&comment.ID, &comment.ArticleID, &comment.UserID, &comment.Username,
+			&comment.Content, &comment.CommentTime, &comment.SupportCount, &comment.ReplyCount,
+			&comment.ParentID, &comment.UserAvatar, &comment.UserLevel, &comment.IPLocation,
+			&comment.DeviceName, &comment.FloorNumber, &comment.IsTuijian, &comment.IsAuthor,
+			&comment.IsBest, &comment.UserAuthentication, &comment.UserGroupID, &comment.ThirdPlatformBound,
+			&comment.CreateTime,
+		)
+		if err != nil {
+			return nil, err
+		}
+		comments = append(comments, comment)
+	}
+
+	return comments, nil
+}
+
+// Close 关闭数据库连接
+func (gcc *GamerskyCommentCrawler) Close() error {
+	if gcc.db != nil {
+		return gcc.db.Close()
+	}
+	return nil
+}
+
+// min 返回两个整数中的较小值
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
