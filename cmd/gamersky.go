@@ -37,6 +37,11 @@ var gamerskyCmd = &cobra.Command{
 		config.OutputPath, _ = cmd.Flags().GetString("output")
 		config.RequestDelay, _ = cmd.Flags().GetDuration("delay")
 
+		// 确保延迟时间有默认值
+		if config.RequestDelay == 0 {
+			config.RequestDelay = 1 * time.Second
+		}
+
 		return runGamerskyrawler(config)
 	},
 }
