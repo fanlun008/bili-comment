@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"bili-comment/crawler"
+	"bili-comment/gamersky"
 
 	"github.com/spf13/cobra"
 )
@@ -50,13 +50,13 @@ func runGamerskyrawler(config *GamerskyConfig) error {
 	log.Println("Gamersky新闻爬虫启动...")
 
 	// 转换配置格式
-	crawlerConfig := &crawler.Config{
+	crawlerConfig := &gamersky.Config{
 		OutputPath:   config.OutputPath,
 		RequestDelay: config.RequestDelay,
 	}
 
 	// 创建爬虫实例
-	crawlerInstance, err := crawler.NewGamerskyNewsCrawler(crawlerConfig)
+	crawlerInstance, err := gamersky.NewNewsCrawler(crawlerConfig)
 	if err != nil {
 		return fmt.Errorf("创建爬虫失败: %v", err)
 	}

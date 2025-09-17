@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"bili-comment/crawler"
+	"bili-comment/gamersky"
 
 	"github.com/spf13/cobra"
 )
@@ -57,13 +57,13 @@ func runGamerskyCommentsCrawler(config *GamerskyCommentsConfig) error {
 	log.Println("Gamersky评论爬虫启动...")
 
 	// 转换配置格式
-	crawlerConfig := &crawler.Config{
+	crawlerConfig := &gamersky.Config{
 		OutputPath:   config.OutputPath,
 		RequestDelay: config.RequestDelay,
 	}
 
 	// 创建爬虫实例
-	crawlerInstance, err := crawler.NewGamerskyCommentCrawler(crawlerConfig)
+	crawlerInstance, err := gamersky.NewCommentCrawler(crawlerConfig)
 	if err != nil {
 		return fmt.Errorf("创建评论爬虫失败: %v", err)
 	}
