@@ -106,7 +106,7 @@ jobs:
         fi
         
     - name: 上传爬取数据
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()  # 即使前面步骤失败也要上传
       with:
         name: gamersky-data-${{ github.run_number }}

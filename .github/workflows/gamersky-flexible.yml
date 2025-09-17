@@ -182,7 +182,7 @@ jobs:
         cat crawl_report.txt
         
     - name: 上传数据和报告
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: gamersky-${{ needs.determine-params.outputs.mode }}-${{ github.run_number }}
