@@ -32,6 +32,11 @@ env:
   # 设置时区
   TZ: Asia/Shanghai
 
+# 添加权限配置
+permissions:
+  contents: write  # 允许写入仓库内容
+  actions: read   # 允许读取actions
+
 jobs:
   crawl:
     runs-on: ubuntu-latest
@@ -115,22 +120,22 @@ jobs:
           data/*.log
         retention-days: 30  # 保留30天
         
-    - name: 提交数据到仓库 (可选)
-      if: github.event_name == 'schedule'  # 仅定时任务提交
-      run: |
-        # 配置 git
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        
-        # 检查是否有变化
-        if [ -n "$(git status --porcelain data/)" ]; then
-          echo "发现新数据，提交到仓库..."
-          git add data/
-          git commit -m "🤖 自动爬取 Gamersky 新闻数据 - $(date '+%Y-%m-%d %H:%M:%S')"
-          git push
-        else
-          echo "没有新数据变化"
-        fi
+    # - name: 提交数据到仓库 (可选)
+    #   if: github.event_name == 'schedule'  # 仅定时任务提交
+    #   run: |
+    #     # 配置 git
+    #     git config --local user.email "action@github.com"
+    #     git config --local user.name "GitHub Action"
+    #     
+    #     # 检查是否有变化
+    #     if [ -n "$(git status --porcelain data/)" ]; then
+    #       echo "发现新数据，提交到仓库..."
+    #       git add data/
+    #       git commit -m "🤖 自动爬取 Gamersky 新闻数据 - $(date '+%Y-%m-%d %H:%M:%S')"
+    #       git push
+    #     else
+    #       echo "没有新数据变化"
+    #     fi
 
   # 可选：发送通知任务
   notify:
