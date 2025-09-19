@@ -48,10 +48,17 @@ if ls "$DOWNLOAD_DIR"/*/*.db &> /dev/null; then
     echo ""
     echo "📊 数据库文件信息："
     for db in "$DOWNLOAD_DIR"/*/*.db; do
-        echo "文件: $(basename "$db")"
+        filename=$(basename "$db")
+        echo "文件: $filename"
         echo "大小: $(du -h "$db" | cut -f1)"
         if command -v sqlite3 &> /dev/null; then
             echo "记录数: $(sqlite3 "$db" "SELECT COUNT(*) FROM news;" 2>/dev/null || echo "无法查询")"
+        fi
+        # 如果是带时间戳的新文件，显示时间信息
+        if [[ "$filename" =~ gamersky_([0-9]{8}_[0-9]{6})\.db ]]; then
+            timestamp="${BASH_REMATCH[1]}"
+            formatted_time=$(date -d "${timestamp:0:8} ${timestamp:9:2}:${timestamp:11:2}:${timestamp:13:2}" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "时间解析失败")
+            echo "爬取时间: $formatted_time"
         fi
         echo "---"
     done
