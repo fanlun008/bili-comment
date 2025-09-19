@@ -80,17 +80,21 @@ jobs:
           PAGES="3"
           DELAY="1s"
         fi
-        
+
         echo "开始爬取 Gamersky 新闻..."
         echo "页数: $PAGES"
         echo "延迟: $DELAY"
         echo "时间: $(date)"
-        
-        # 执行爬取命令
+
+        # 生成一次性时间戳，写入 GITHUB_ENV 以便后续步骤复用，保证本次 run 使用相同时间
+        RUN_TS=$(date +%Y%m%d_%H%M%S)
+        echo "RUN_TS=$RUN_TS" >> "$GITHUB_ENV"
+
+        # 执行爬取命令（使用提前获取的时间戳）
         go run main.go gamersky-once \
           --pages="$PAGES" \
           --delay="$DELAY" \
-          --output="./data/ci-output/gamersky_$(date +%Y%m%d_%H%M%S).db"
+          --output="./data/ci-output/gamersky_${RUN_TS}.db"
           
     - name: 检查爬取结果
       run: |
