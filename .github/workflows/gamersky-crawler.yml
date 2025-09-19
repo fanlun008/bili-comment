@@ -1,4 +1,4 @@
-name: Gamersky News Crawler
+name: Gamersky News and Comments Crawler
 
 on:
   # 定时触发 - 每5分钟执行一次
@@ -13,10 +13,15 @@ on:
   # 手动触发
   workflow_dispatch:
     inputs:
-      pages:
-        description: '爬取页数'
+      news_pages:
+        description: '爬取新闻页数'
         required: false
         default: '3'
+        type: string
+      comment_pages:
+        description: '每条新闻爬取的评论页数'
+        required: false
+        default: '5'
         type: string
       delay:
         description: '请求延迟时间 (如: 1s, 2s, 500ms)'
@@ -73,16 +78,19 @@ jobs:
         # 根据触发方式设置参数
         if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
           # 手动触发，使用输入参数
-          PAGES="${{ github.event.inputs.pages }}"
+          NEWS_PAGES="${{ github.event.inputs.news_pages }}"
+          COMMENT_PAGES="${{ github.event.inputs.comment_pages }}"
           DELAY="${{ github.event.inputs.delay }}"
         else
           # 定时触发，使用默认参数
-          PAGES="3"
+          NEWS_PAGES="3"
+          COMMENT_PAGES="5"
           DELAY="1s"
         fi
 
-        echo "开始爬取 Gamersky 新闻..."
-        echo "页数: $PAGES"
+        echo "开始爬取 Gamersky 新闻和评论..."
+        echo "新闻页数: $NEWS_PAGES"
+        echo "评论页数: $COMMENT_PAGES"
         echo "延迟: $DELAY"
         echo "时间: $(date)"
 
@@ -91,8 +99,9 @@ jobs:
         echo "RUN_TS=$RUN_TS" >> "$GITHUB_ENV"
 
         # 执行爬取命令（使用提前获取的时间戳）
-        go run main.go gamersky-once \
-          --pages="$PAGES" \
+        go run main.go gamersky-full \
+          --news-pages="$NEWS_PAGES" \
+          --comment-pages="$COMMENT_PAGES" \
           --delay="$DELAY" \
           --output="./data/ci-output/gamersky_${RUN_TS}.db"
           
@@ -106,7 +115,9 @@ jobs:
             
             # 如果有sqlite3命令，显示记录数
             if command -v sqlite3 &> /dev/null; then
-              echo "记录数量: $(sqlite3 "$db" "SELECT COUNT(*) FROM news;" 2>/dev/null || echo "无法查询")"
+              echo "新闻数量: $(sqlite3 "$db" "SELECT COUNT(*) FROM gamersky_news;" 2>/dev/null || echo "无法查询")"
+              echo "评论数量: $(sqlite3 "$db" "SELECT COUNT(*) FROM gamersky_comments;" 2>/dev/null || echo "无法查询")"
+              echo "总记录数: $(sqlite3 "$db" "SELECT (SELECT COUNT(*) FROM gamersky_news) + (SELECT COUNT(*) FROM gamersky_comments);" 2>/dev/null || echo "无法查询")"
             fi
             echo "---"
           done
