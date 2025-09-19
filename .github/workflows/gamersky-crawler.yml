@@ -64,7 +64,7 @@ jobs:
       run: go mod download
       
     - name: 创建数据目录
-      run: mkdir -p data
+      run: mkdir -p data/ci-output
       
     - name: 执行爬取任务
       env:
@@ -90,13 +90,13 @@ jobs:
         go run main.go gamersky-once \
           --pages="$PAGES" \
           --delay="$DELAY" \
-          --output="./data/gamersky_$(date +%Y%m%d_%H%M%S).db"
+          --output="./data/ci-output/gamersky_$(date +%Y%m%d_%H%M%S).db"
           
     - name: 检查爬取结果
       run: |
         echo "=== 爬取结果统计 ==="
-        if ls data/*.db 1> /dev/null 2>&1; then
-          for db in data/*.db; do
+        if ls data/ci-output/*.db 1> /dev/null 2>&1; then
+          for db in data/ci-output/*.db; do
             echo "数据库文件: $db"
             echo "文件大小: $(du -h "$db" | cut -f1)"
             
@@ -116,8 +116,8 @@ jobs:
       with:
         name: gamersky-data-${{ github.run_number }}
         path: |
-          data/*.db
-          data/*.log
+          data/ci-output/*.db
+          data/ci-output/*.log
         retention-days: 30  # 保留30天
         
     # - name: 提交数据到仓库 (可选)
