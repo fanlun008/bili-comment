@@ -198,10 +198,21 @@ func (gnc *NewsCrawler) crawlFirstPage() (int, error) {
 			CreateTime:  time.Now().Format("2006-01-02 15:04:05"),
 		}
 
-		// 提取标题 - 从 titleAndTime 内的 h5 标签
+		// 提取标题 - 根据当前li元素的布局类型来决定
+		var newsType string
+
+		// 检查是否为 titleAndTime 布局
 		titleElement := e.DOM.Find(".titleAndTime h5")
 		if titleElement.Length() > 0 {
 			news.Title = strings.TrimSpace(titleElement.Text())
+			newsType = "titleAndTime"
+		}
+
+		// 检查是否为 sanTu 布局
+		sanTuElement := e.DOM.Find(".sanTu h5")
+		if sanTuElement.Length() > 0 {
+			news.Title = strings.TrimSpace(sanTuElement.Text())
+			newsType = "sanTu"
 		}
 
 		// 提取时间 - 从 time 标签
@@ -220,10 +231,19 @@ func (gnc *NewsCrawler) crawlFirstPage() (int, error) {
 			}
 		}
 
-		// 提取链接 - 从 a 标签的 href
-		linkElement := e.DOM.Find("a")
-		if linkElement.Length() > 0 {
-			news.URL = linkElement.AttrOr("href", "")
+		// 提取链接 - 根据布局类型选择合适的选择器
+		if newsType == "sanTu" {
+			// sanTu 布局：优先使用 .sanTu 内的链接
+			sanTuLinkElement := e.DOM.Find(".sanTu a")
+			if sanTuLinkElement.Length() > 0 {
+				news.URL = sanTuLinkElement.AttrOr("href", "")
+			}
+		} else {
+			// titleAndTime 布局或其他：使用通用的 a 标签
+			linkElement := e.DOM.Find("a")
+			if linkElement.Length() > 0 {
+				news.URL = linkElement.AttrOr("href", "")
+			}
 		}
 
 		// 提取图片链接 - 从 img 标签的 src
@@ -239,7 +259,7 @@ func (gnc *NewsCrawler) crawlFirstPage() (int, error) {
 				log.Printf("保存新闻失败 (SID: %s): %v", news.SID, err)
 			} else {
 				count++
-				log.Printf("爬取新闻: %s - %s", news.SID, news.Title)
+				log.Printf("爬取新闻 [%s]: %s - %s", newsType, news.SID, news.Title)
 			}
 		}
 	})
