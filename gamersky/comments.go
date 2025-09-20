@@ -315,7 +315,7 @@ func (gcc *CommentCrawler) QueryComments(articleID string, limit int) ([]Comment
 			SELECT id, article_id, user_id, username, content, comment_time, support_count, reply_count, parent_id, answer_to_id, answer_to_name, user_avatar, user_level, ip_location, device_name, floor_number, is_tuijian, is_author, is_best, user_authentication, user_group_id, third_platform_bound, create_time 
 			FROM gamersky_comments 
 			WHERE article_id = ? 
-			ORDER BY id ASC 
+			ORDER BY comment_time DESC 
 			LIMIT ?`
 			args = append(args, articleID, limit)
 		} else {
@@ -323,7 +323,7 @@ func (gcc *CommentCrawler) QueryComments(articleID string, limit int) ([]Comment
 			SELECT id, article_id, user_id, username, content, comment_time, support_count, reply_count, parent_id, answer_to_id, answer_to_name, user_avatar, user_level, ip_location, device_name, floor_number, is_tuijian, is_author, is_best, user_authentication, user_group_id, third_platform_bound, create_time 
 			FROM gamersky_comments 
 			WHERE article_id = ? 
-			ORDER BY id ASC`
+			ORDER BY comment_time DESC`
 			args = append(args, articleID)
 		}
 	} else {

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -238,7 +239,9 @@ func (nv *NewsViewer) showNewsComments(news NewsItem) error {
 	if len(comments) == 0 {
 		color.Yellow("💬 暂无评论")
 	} else {
-		nv.printComments(comments)
+		// 重新组织评论结构
+		organizedComments := nv.organizeComments(comments)
+		nv.printComments(organizedComments)
 	}
 
 	fmt.Println()
@@ -252,6 +255,52 @@ func (nv *NewsViewer) showNewsComments(news NewsItem) error {
 // getComments 获取评论列表
 func (nv *NewsViewer) getComments(newsID string) ([]CommentItem, error) {
 	return nv.db.GetComments(newsID)
+}
+
+// organizeComments 组织评论结构：先显示一级评论，然后显示对应的回复
+func (nv *NewsViewer) organizeComments(comments []CommentItem) []CommentItem {
+	var organized []CommentItem
+
+	// 创建按ID索引的映射，方便查找
+	commentMap := make(map[int64]CommentItem)
+	for _, comment := range comments {
+		commentMap[comment.ID] = comment
+	}
+
+	// 首先找出所有一级评论（ParentID为0）
+	var topLevelComments []CommentItem
+	for _, comment := range comments {
+		if comment.ParentID == 0 {
+			topLevelComments = append(topLevelComments, comment)
+		}
+	}
+
+	// 对一级评论按时间降序排序
+	sort.Slice(topLevelComments, func(i, j int) bool {
+		return topLevelComments[i].Time > topLevelComments[j].Time
+	})
+
+	// 对每个一级评论，找到其所有回复并添加到结果中
+	for _, topComment := range topLevelComments {
+		// 添加一级评论
+		organized = append(organized, topComment)
+
+		// 查找并添加所有回复该评论的子评论
+		var replies []CommentItem
+		for _, comment := range comments {
+			if comment.ParentID == topComment.ID {
+				replies = append(replies, comment)
+			}
+		}
+
+		// 将回复按时间降序排序后添加
+		sort.Slice(replies, func(i, j int) bool {
+			return replies[i].Time > replies[j].Time
+		})
+		organized = append(organized, replies...)
+	}
+
+	return organized
 }
 
 // printComments 打印评论列表
