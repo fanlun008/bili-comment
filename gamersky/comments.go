@@ -52,27 +52,29 @@ type CommentAPIResponse struct {
 			ThirdPlatformBound string        `json:"thirdPlatformBound"`
 			Comments           interface{}   `json:"comments"`
 			Replies            []struct {
-				CommentID          int64         `json:"comment_id"`
-				CreateTime         int64         `json:"create_time"`
-				LastJoinTime       int64         `json:"last_join_time"`
-				IsTuijian          bool          `json:"is_tuijian"`
-				IsAuthor           bool          `json:"is_author"`
-				IsBest             bool          `json:"is_best"`
-				BeAuthorPraise     bool          `json:"beAuthorPraise"`
-				From               int           `json:"from"`
-				Content            string        `json:"content"`
-				SupportCount       int           `json:"support_count"`
-				IPLocation         string        `json:"ip_location"`
-				UserID             int           `json:"user_id"`
-				Nickname           string        `json:"nickname"`
-				ImgURL             string        `json:"img_url"`
-				DeviceName         string        `json:"deviceName"`
-				UserLevel          int           `json:"userLevel"`
-				UserAuthentication string        `json:"userAuthentication"`
-				UserGroupID        int           `json:"userGroupId"`
-				FloorNumber        int           `json:"floorNumber"`
-				ImageInfes         []interface{} `json:"imageInfes"`
-				ThirdPlatformBound string        `json:"thirdPlatformBound"`
+				RootID                   int64  `json:"rootId"`
+				ReplyID                  int64  `json:"replyId"`
+				CreateTime               int64  `json:"createTime"`
+				ReplyContent             string `json:"replyContent"`
+				PraisesCount             int    `json:"praisesCount"`
+				UserID                   int    `json:"userId"`
+				UserName                 string `json:"userName"`
+				UserHeadImageURL         string `json:"userHeadImageURL"`
+				DeviceName               string `json:"deviceName"`
+				UserLevel                int    `json:"userLevel"`
+				UserAuthentication       string `json:"userAuthentication"`
+				UserGroupID              int    `json:"userGroupId"`
+				ThirdPlatformBound       string `json:"thirdPlatformBound"`
+				ObjectCommentID          int64  `json:"objectCommentId"`
+				ObjectUserID             int    `json:"objectUserId"`
+				ObjectUserName           string `json:"objectUserName"`
+				ObjectUserHeadImageURL   string `json:"objectUserHeadImageURL"`
+				ObjectUserGroupID        int    `json:"objectUserGroupId"`
+				ObjectUserAuthentication string `json:"objectUserAuthentication"`
+				ObjectUserLevel          int    `json:"objectUserLevel"`
+				IsAuthor                 bool   `json:"is_author"`
+				IPLocation               string `json:"ip_location"`
+				BeAuthorPraise           bool   `json:"beAuthorPraise"`
 			} `json:"replies"`
 			RepliesCount int `json:"repliesCount"`
 		} `json:"comments"`
@@ -231,29 +233,29 @@ func (gcc *CommentCrawler) crawlCommentsPage(articleID string, pageIndex int) (i
 		// 处理回复（二级评论）
 		for _, reply := range comment.Replies {
 			// 跳过无效的回复数据
-			if reply.CommentID == 0 || reply.Nickname == "" {
-				log.Printf("跳过无效回复数据: ID=%d, Nickname=%s", reply.CommentID, reply.Nickname)
+			if reply.ReplyID == 0 || reply.UserName == "" {
+				log.Printf("跳过无效回复数据: ID=%d, UserName=%s", reply.ReplyID, reply.UserName)
 				continue
 			}
 
 			replyComment := &Comment{
-				ID:                 reply.CommentID,
+				ID:                 reply.ReplyID,
 				ArticleID:          articleID,
 				UserID:             reply.UserID,
-				Username:           reply.Nickname,
-				Content:            reply.Content,
+				Username:           reply.UserName,
+				Content:            reply.ReplyContent,
 				CommentTime:        time.Unix(reply.CreateTime/1000, 0).Format("2006-01-02 15:04:05"),
-				SupportCount:       reply.SupportCount,
+				SupportCount:       reply.PraisesCount,
 				ReplyCount:         0,                 // 二级评论通常没有回复数
 				ParentID:           comment.CommentID, // 父评论ID
-				UserAvatar:         reply.ImgURL,
+				UserAvatar:         reply.UserHeadImageURL,
 				UserLevel:          reply.UserLevel,
 				IPLocation:         reply.IPLocation,
 				DeviceName:         reply.DeviceName,
-				FloorNumber:        reply.FloorNumber,
-				IsTuijian:          reply.IsTuijian,
+				FloorNumber:        0,     // 回复通常没有楼层号
+				IsTuijian:          false, // 回复结构中没有此字段
 				IsAuthor:           reply.IsAuthor,
-				IsBest:             reply.IsBest,
+				IsBest:             false, // 回复结构中没有此字段
 				UserAuthentication: reply.UserAuthentication,
 				UserGroupID:        reply.UserGroupID,
 				ThirdPlatformBound: reply.ThirdPlatformBound,
@@ -261,10 +263,10 @@ func (gcc *CommentCrawler) crawlCommentsPage(articleID string, pageIndex int) (i
 			}
 
 			if err := gcc.saveCommentToDB(replyComment); err != nil {
-				log.Printf("保存回复失败 (ID: %d): %v", reply.CommentID, err)
+				log.Printf("保存回复失败 (ID: %d): %v", reply.ReplyID, err)
 			} else {
 				count++
-				log.Printf("保存回复: %d - %s", reply.CommentID, reply.Nickname)
+				log.Printf("保存回复: %d - %s", reply.ReplyID, reply.UserName)
 			}
 		}
 	}
