@@ -329,11 +329,8 @@ func (nv *NewsViewer) printComment(comment CommentItem, isLast bool) {
 
 	// 用户信息行 - 在同一行输出所有信息
 	fmt.Print(prefix)
-	fmt.Printf("👤 %s  Lv%d  📍 %s  📅 %s", username, comment.UserLevel, ipLocation, commentTime)
-	if comment.SupportCount > 0 {
-		fmt.Printf("   %d", comment.SupportCount)
-	}
-	fmt.Println()
+	commentUserInfo := fmt.Sprintf("👤 %s  Lv%d  📍 %s  📅 %s  👍 %d", username, comment.UserLevel, ipLocation, commentTime, comment.SupportCount)
+	color.HiBlack(commentUserInfo)
 
 	// 评论内容
 	fmt.Print(prefix)
