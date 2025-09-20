@@ -205,7 +205,7 @@ func (gcc *CommentCrawler) crawlCommentsPage(articleID string, pageIndex int) (i
 			UserID:             comment.UserID,
 			Username:           comment.Nickname,
 			Content:            comment.Content,
-			CommentTime:        time.Unix(comment.CreateTime/1000, 0).Format("2006-01-02 15:04:05"),
+			CommentTime:        time.Unix(comment.CreateTime/1000, 0).In(time.FixedZone("CST", 8*3600)).Format("2006-01-02 15:04:05"),
 			SupportCount:       comment.SupportCount,
 			ReplyCount:         comment.RepliesCount,
 			ParentID:           0,  // 一级评论父ID为0
@@ -222,7 +222,7 @@ func (gcc *CommentCrawler) crawlCommentsPage(articleID string, pageIndex int) (i
 			UserAuthentication: comment.UserAuthentication,
 			UserGroupID:        comment.UserGroupID,
 			ThirdPlatformBound: comment.ThirdPlatformBound,
-			CreateTime:         time.Now().Format("2006-01-02 15:04:05"),
+			CreateTime:         time.Unix(comment.CreateTime/1000, 0).In(time.FixedZone("CST", 8*3600)).Format("2006-01-02 15:04:05"),
 		}
 
 		if err := gcc.saveCommentToDB(gamerskyComment); err != nil {
@@ -246,7 +246,7 @@ func (gcc *CommentCrawler) crawlCommentsPage(articleID string, pageIndex int) (i
 				UserID:             reply.UserID,
 				Username:           reply.UserName,
 				Content:            reply.ReplyContent,
-				CommentTime:        time.Unix(reply.CreateTime/1000, 0).Format("2006-01-02 15:04:05"),
+				CommentTime:        time.Unix(reply.CreateTime/1000, 0).In(time.FixedZone("CST", 8*3600)).Format("2006-01-02 15:04:05"),
 				SupportCount:       reply.PraisesCount,
 				ReplyCount:         0,                     // 二级评论通常没有回复数
 				ParentID:           comment.CommentID,     // 父评论ID
@@ -263,7 +263,7 @@ func (gcc *CommentCrawler) crawlCommentsPage(articleID string, pageIndex int) (i
 				UserAuthentication: reply.UserAuthentication,
 				UserGroupID:        reply.UserGroupID,
 				ThirdPlatformBound: reply.ThirdPlatformBound,
-				CreateTime:         time.Now().Format("2006-01-02 15:04:05"),
+				CreateTime:         time.Unix(reply.CreateTime/1000, 0).In(time.FixedZone("CST", 8*3600)).Format("2006-01-02 15:04:05"),
 			}
 
 			if err := gcc.saveCommentToDB(replyComment); err != nil {

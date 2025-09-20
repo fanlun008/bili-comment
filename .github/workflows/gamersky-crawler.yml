@@ -21,12 +21,12 @@ on:
       comment_pages:
         description: '每条新闻爬取的评论页数'
         required: false
-        default: '3'
+        default: '5'
         type: string
       delay:
         description: '请求延迟时间 (如: 1s, 2s, 500ms)'
         required: false
-        default: '1s'
+        default: '2s'
         type: string
 
   # 推送触发（可选）
