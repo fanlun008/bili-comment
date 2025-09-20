@@ -27,6 +27,24 @@
                 "--delay=1s",
                 "--output=./data/debug_single.db"
             ]
+        },
+        {
+            "name": "Gamersky Full Crawler",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/main.go",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "CGO_ENABLED": "1"
+            },
+            "args": [
+                "gamersky-full",
+                "--news-pages=2",
+                "--comment-pages=5",
+                "--delay=2s"
+            ],
+            "console": "integratedTerminal"
         }
     ]
 }

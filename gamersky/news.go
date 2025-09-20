@@ -314,6 +314,11 @@ func (gnc *NewsCrawler) saveNewsToDB(news *NewsInfo) error {
 
 // QueryNews 查询数据库中的新闻
 func (gnc *NewsCrawler) QueryNews(limit int) ([]NewsInfo, error) {
+	return gnc.QueryNewsWithOffset(0, limit)
+}
+
+// QueryNewsWithOffset 查询数据库中的新闻（支持偏移量）
+func (gnc *NewsCrawler) QueryNewsWithOffset(offset, limit int) ([]NewsInfo, error) {
 	var query string
 	var args []interface{}
 
@@ -322,8 +327,8 @@ func (gnc *NewsCrawler) QueryNews(limit int) ([]NewsInfo, error) {
 		SELECT sid, title, time, comment_num, url, image_url, topline_time, create_time 
 		FROM gamersky_news 
 		ORDER BY create_time DESC 
-		LIMIT ?`
-		args = append(args, limit)
+		LIMIT ? OFFSET ?`
+		args = append(args, limit, offset)
 	} else {
 		query = `
 		SELECT sid, title, time, comment_num, url, image_url, topline_time, create_time 
