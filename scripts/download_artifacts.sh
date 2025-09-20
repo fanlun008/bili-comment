@@ -2,7 +2,7 @@
 
 # GitHub仓库信息
 REPO="fanlun008/bili-comment"
-WORKFLOW_NAME="Gamersky News Crawler"
+WORKFLOW_NAME="Gamersky News and Comments Crawler"
 
 echo "🔍 正在查看最近的工作流运行..."
 
