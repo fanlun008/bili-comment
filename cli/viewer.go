@@ -317,29 +317,27 @@ func (nv *NewsViewer) printComment(comment CommentItem, isLast bool) {
 	if comment.ParentID != 0 {
 		// 二级评论使用竖线框标识
 		prefix = "│ "
-		color.Blue("│ ↳ 回复 @%s", comment.AnswerToName)
+		color.Blue("│ ↳ 回复 @%s", strings.TrimSpace(comment.AnswerToName))
 		fmt.Println()
 	}
 
-	// 用户信息行
-	fmt.Print(prefix)
-	color.Magenta("👤 %s", comment.Username)
-	fmt.Print("  ")
-	color.Blue("Lv%d", comment.UserLevel)
-	fmt.Print("  ")
-	color.Cyan("📍 %s", comment.IPLocation)
-	fmt.Print("  ")
-	color.Green("📅 %s", comment.Time)
+	// 清理字段中的换行符和多余空格
+	username := strings.TrimSpace(strings.ReplaceAll(comment.Username, "\n", " "))
+	ipLocation := strings.TrimSpace(strings.ReplaceAll(comment.IPLocation, "\n", " "))
+	commentTime := strings.TrimSpace(strings.ReplaceAll(comment.Time, "\n", " "))
+	content := strings.TrimSpace(strings.ReplaceAll(comment.Content, "\n", " "))
 
+	// 用户信息行 - 在同一行输出所有信息
+	fmt.Print(prefix)
+	fmt.Printf("👤 %s  Lv%d  📍 %s  📅 %s", username, comment.UserLevel, ipLocation, commentTime)
 	if comment.SupportCount > 0 {
-		fmt.Print("  ")
-		color.Yellow("👍 %d", comment.SupportCount)
+		fmt.Printf("   %d", comment.SupportCount)
 	}
 	fmt.Println()
 
 	// 评论内容
 	fmt.Print(prefix)
-	color.White("💬 %s", comment.Content)
+	color.White("💬 %s", content)
 	fmt.Println()
 
 	if !isLast {
@@ -350,9 +348,7 @@ func (nv *NewsViewer) printComment(comment CommentItem, isLast bool) {
 			fmt.Println(strings.Repeat("─", 60))
 		}
 	}
-}
-
-// waitForEnter 等待用户按回车
+} // waitForEnter 等待用户按回车
 func (nv *NewsViewer) waitForEnter() {
 	reader := bufio.NewReader(os.Stdin)
 	reader.ReadString('\n')
