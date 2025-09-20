@@ -315,9 +315,9 @@ func (nv *NewsViewer) printComment(comment CommentItem, isLast bool) {
 	// 评论层级标识
 	var prefix string
 	if comment.ParentID != 0 {
-		// 二级评论使用竖线框标识
-		prefix = "│ "
-		color.Blue("│ ↳ 回复 @%s", strings.TrimSpace(comment.AnswerToName))
+		// 二级评论使用更多缩进
+		prefix = "    │ "
+		color.Blue("    │ ↳ 回复 @%s", strings.TrimSpace(comment.AnswerToName))
 		fmt.Println()
 	}
 
@@ -339,8 +339,8 @@ func (nv *NewsViewer) printComment(comment CommentItem, isLast bool) {
 
 	if !isLast {
 		if comment.ParentID != 0 {
-			// 二级评论的分隔线也使用竖线框
-			fmt.Println("│ " + strings.Repeat("─", 58))
+			// 二级评论的分隔线也使用更多缩进
+			fmt.Println("    │ " + strings.Repeat("─", 54))
 		} else {
 			fmt.Println(strings.Repeat("─", 60))
 		}
