@@ -313,15 +313,16 @@ func (nv *NewsViewer) printComments(comments []CommentItem) {
 // printComment 打印单条评论
 func (nv *NewsViewer) printComment(comment CommentItem, isLast bool) {
 	// 评论层级标识
-	indent := ""
+	var prefix string
 	if comment.ParentID != 0 {
-		indent = "    "
-		color.Blue("    ↳ 回复 @%s", comment.AnswerToName)
+		// 二级评论使用竖线框标识
+		prefix = "│ "
+		color.Blue("│ ↳ 回复 @%s", comment.AnswerToName)
 		fmt.Println()
 	}
 
 	// 用户信息行
-	fmt.Print(indent)
+	fmt.Print(prefix)
 	color.Magenta("👤 %s", comment.Username)
 	fmt.Print("  ")
 	color.Blue("Lv%d", comment.UserLevel)
@@ -337,12 +338,17 @@ func (nv *NewsViewer) printComment(comment CommentItem, isLast bool) {
 	fmt.Println()
 
 	// 评论内容
-	fmt.Print(indent)
+	fmt.Print(prefix)
 	color.White("💬 %s", comment.Content)
 	fmt.Println()
 
 	if !isLast {
-		fmt.Println(indent + strings.Repeat("─", 60))
+		if comment.ParentID != 0 {
+			// 二级评论的分隔线也使用竖线框
+			fmt.Println("│ " + strings.Repeat("─", 58))
+		} else {
+			fmt.Println(strings.Repeat("─", 60))
+		}
 	}
 }
 
