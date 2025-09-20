@@ -23,6 +23,8 @@ type Comment struct {
 	SupportCount       int    `json:"support_count"`        // 点赞数
 	ReplyCount         int    `json:"reply_count"`          // 回复数
 	ParentID           int64  `json:"parent_id"`            // 父评论ID (0表示一级评论)
+	AnswerToID         int64  `json:"answer_to_id"`         // 被回复的评论ID (0表示一级评论)
+	AnswerToName       string `json:"answer_to_name"`       // 被回复用户名
 	UserAvatar         string `json:"user_avatar"`          // 用户头像
 	UserLevel          int    `json:"user_level"`           // 用户等级
 	IPLocation         string `json:"ip_location"`          // IP位置

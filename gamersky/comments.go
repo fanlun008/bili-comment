@@ -208,7 +208,9 @@ func (gcc *CommentCrawler) crawlCommentsPage(articleID string, pageIndex int) (i
 			CommentTime:        time.Unix(comment.CreateTime/1000, 0).Format("2006-01-02 15:04:05"),
 			SupportCount:       comment.SupportCount,
 			ReplyCount:         comment.RepliesCount,
-			ParentID:           0, // 一级评论父ID为0
+			ParentID:           0,  // 一级评论父ID为0
+			AnswerToID:         0,  // 一级评论不回复任何人
+			AnswerToName:       "", // 一级评论不回复任何人
 			UserAvatar:         comment.ImgURL,
 			UserLevel:          comment.UserLevel,
 			IPLocation:         comment.IPLocation,
@@ -246,8 +248,10 @@ func (gcc *CommentCrawler) crawlCommentsPage(articleID string, pageIndex int) (i
 				Content:            reply.ReplyContent,
 				CommentTime:        time.Unix(reply.CreateTime/1000, 0).Format("2006-01-02 15:04:05"),
 				SupportCount:       reply.PraisesCount,
-				ReplyCount:         0,                 // 二级评论通常没有回复数
-				ParentID:           comment.CommentID, // 父评论ID
+				ReplyCount:         0,                     // 二级评论通常没有回复数
+				ParentID:           comment.CommentID,     // 父评论ID
+				AnswerToID:         reply.ObjectCommentID, // 被回复的评论ID
+				AnswerToName:       reply.ObjectUserName,  // 被回复用户名
 				UserAvatar:         reply.UserHeadImageURL,
 				UserLevel:          reply.UserLevel,
 				IPLocation:         reply.IPLocation,
@@ -285,14 +289,14 @@ func (gcc *CommentCrawler) saveCommentToDB(comment *Comment) error {
 	// 使用 INSERT OR IGNORE 来实现去重
 	sql := `
 	INSERT OR IGNORE INTO gamersky_comments 
-	(id, article_id, user_id, username, content, comment_time, support_count, reply_count, parent_id, user_avatar, user_level, ip_location, device_name, floor_number, is_tuijian, is_author, is_best, user_authentication, user_group_id, third_platform_bound, create_time)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	(id, article_id, user_id, username, content, comment_time, support_count, reply_count, parent_id, answer_to_id, answer_to_name, user_avatar, user_level, ip_location, device_name, floor_number, is_tuijian, is_author, is_best, user_authentication, user_group_id, third_platform_bound, create_time)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	_, err := gcc.db.Exec(sql,
 		comment.ID, comment.ArticleID, comment.UserID, comment.Username,
 		comment.Content, comment.CommentTime, comment.SupportCount, comment.ReplyCount,
-		comment.ParentID, comment.UserAvatar, comment.UserLevel, comment.IPLocation,
+		comment.ParentID, comment.AnswerToID, comment.AnswerToName, comment.UserAvatar, comment.UserLevel, comment.IPLocation,
 		comment.DeviceName, comment.FloorNumber, comment.IsTuijian, comment.IsAuthor,
 		comment.IsBest, comment.UserAuthentication, comment.UserGroupID, comment.ThirdPlatformBound,
 		comment.CreateTime)
@@ -308,7 +312,7 @@ func (gcc *CommentCrawler) QueryComments(articleID string, limit int) ([]Comment
 	if articleID != "" {
 		if limit > 0 {
 			query = `
-			SELECT id, article_id, user_id, username, content, comment_time, support_count, reply_count, parent_id, user_avatar, user_level, ip_location, device_name, floor_number, is_tuijian, is_author, is_best, user_authentication, user_group_id, third_platform_bound, create_time 
+			SELECT id, article_id, user_id, username, content, comment_time, support_count, reply_count, parent_id, answer_to_id, answer_to_name, user_avatar, user_level, ip_location, device_name, floor_number, is_tuijian, is_author, is_best, user_authentication, user_group_id, third_platform_bound, create_time 
 			FROM gamersky_comments 
 			WHERE article_id = ? 
 			ORDER BY id ASC 
@@ -316,7 +320,7 @@ func (gcc *CommentCrawler) QueryComments(articleID string, limit int) ([]Comment
 			args = append(args, articleID, limit)
 		} else {
 			query = `
-			SELECT id, article_id, user_id, username, content, comment_time, support_count, reply_count, parent_id, user_avatar, user_level, ip_location, device_name, floor_number, is_tuijian, is_author, is_best, user_authentication, user_group_id, third_platform_bound, create_time 
+			SELECT id, article_id, user_id, username, content, comment_time, support_count, reply_count, parent_id, answer_to_id, answer_to_name, user_avatar, user_level, ip_location, device_name, floor_number, is_tuijian, is_author, is_best, user_authentication, user_group_id, third_platform_bound, create_time 
 			FROM gamersky_comments 
 			WHERE article_id = ? 
 			ORDER BY id ASC`
@@ -325,14 +329,14 @@ func (gcc *CommentCrawler) QueryComments(articleID string, limit int) ([]Comment
 	} else {
 		if limit > 0 {
 			query = `
-			SELECT id, article_id, user_id, username, content, comment_time, support_count, reply_count, parent_id, user_avatar, user_level, ip_location, device_name, floor_number, is_tuijian, is_author, is_best, user_authentication, user_group_id, third_platform_bound, create_time 
+			SELECT id, article_id, user_id, username, content, comment_time, support_count, reply_count, parent_id, answer_to_id, answer_to_name, user_avatar, user_level, ip_location, device_name, floor_number, is_tuijian, is_author, is_best, user_authentication, user_group_id, third_platform_bound, create_time 
 			FROM gamersky_comments 
 			ORDER BY create_time DESC 
 			LIMIT ?`
 			args = append(args, limit)
 		} else {
 			query = `
-			SELECT id, article_id, user_id, username, content, comment_time, support_count, reply_count, parent_id, user_avatar, user_level, ip_location, device_name, floor_number, is_tuijian, is_author, is_best, user_authentication, user_group_id, third_platform_bound, create_time 
+			SELECT id, article_id, user_id, username, content, comment_time, support_count, reply_count, parent_id, answer_to_id, answer_to_name, user_avatar, user_level, ip_location, device_name, floor_number, is_tuijian, is_author, is_best, user_authentication, user_group_id, third_platform_bound, create_time 
 			FROM gamersky_comments 
 			ORDER BY create_time DESC`
 		}
@@ -350,7 +354,7 @@ func (gcc *CommentCrawler) QueryComments(articleID string, limit int) ([]Comment
 		err := rows.Scan(
 			&comment.ID, &comment.ArticleID, &comment.UserID, &comment.Username,
 			&comment.Content, &comment.CommentTime, &comment.SupportCount, &comment.ReplyCount,
-			&comment.ParentID, &comment.UserAvatar, &comment.UserLevel, &comment.IPLocation,
+			&comment.ParentID, &comment.AnswerToID, &comment.AnswerToName, &comment.UserAvatar, &comment.UserLevel, &comment.IPLocation,
 			&comment.DeviceName, &comment.FloorNumber, &comment.IsTuijian, &comment.IsAuthor,
 			&comment.IsBest, &comment.UserAuthentication, &comment.UserGroupID, &comment.ThirdPlatformBound,
 			&comment.CreateTime,

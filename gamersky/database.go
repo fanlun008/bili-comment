@@ -58,6 +58,8 @@ func GetDBConnection(dbPath string) (*sql.DB, error) {
 		support_count INTEGER DEFAULT 0,
 		reply_count INTEGER DEFAULT 0,
 		parent_id INTEGER DEFAULT 0,
+		answer_to_id INTEGER DEFAULT 0,
+		answer_to_name TEXT DEFAULT '',
 		user_avatar TEXT,
 		user_level INTEGER DEFAULT 0,
 		ip_location TEXT,
